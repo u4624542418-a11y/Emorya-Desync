@@ -1,0 +1,210 @@
+local Players=game:GetService("Players")
+local TweenService=game:GetService("TweenService")
+local UserInputService=game:GetService("UserInputService")
+local player=Players.LocalPlayer
+
+local active=false
+
+local AC=Color3.fromRGB(120,80,255)
+local AC2=Color3.fromRGB(180,120,255)
+local BG=Color3.fromRGB(10,10,18)
+local BM=Color3.fromRGB(18,18,30)
+local BT=Color3.fromRGB(22,22,38)
+local WH=Color3.fromRGB(255,255,255)
+local GR=Color3.fromRGB(160,160,170)
+local RD=Color3.fromRGB(255,70,70)
+local GN=Color3.fromRGB(80,255,130)
+
+local function mkCorner(p,r) local c=Instance.new("UICorner",p) c.CornerRadius=UDim.new(0,r or 8) end
+local function mkStroke(p,col,th) local s=Instance.new("UIStroke",p) s.Color=col or AC s.Thickness=th or 1.5 return s end
+
+local function makeDraggable(frame,handle)
+    local drag,ds,dp=false,nil,nil
+    handle.InputBegan:Connect(function(i)
+        if i.UserInputType==Enum.UserInputType.MouseButton1 or i.UserInputType==Enum.UserInputType.Touch then
+            drag=true ds=i.Position dp=frame.Position
+            i.Changed:Connect(function()
+                if i.UserInputState==Enum.UserInputState.End then drag=false end
+            end)
+        end
+    end)
+    UserInputService.InputChanged:Connect(function(i)
+        if drag and(i.UserInputType==Enum.UserInputType.MouseMovement or i.UserInputType==Enum.UserInputType.Touch) then
+            local d=i.Position-ds
+            frame.Position=UDim2.new(dp.X.Scale,dp.X.Offset+d.X,dp.Y.Scale,dp.Y.Offset+d.Y)
+        end
+    end)
+end
+
+local function notif(t)
+    game:GetService("StarterGui"):SetCore("SendNotification",{Title="EMORYA",Text=t,Duration=2})
+end
+
+local function activate()
+    if active then return end
+    active=true
+    task.spawn(function()
+        local char=player.Character
+        if not char then active=false return end
+        local hum=char:FindFirstChildOfClass("Humanoid")
+        if not hum then active=false return end
+
+        -- Equipe le carpet
+        local carpet=player.Backpack:FindFirstChild("Flying Carpet") or char:FindFirstChild("Flying Carpet")
+        if carpet then
+            pcall(function() hum:EquipTool(carpet) end)
+            task.wait(0.3)
+            -- Active le carpet pour qu'il vole
+            pcall(function() carpet:Activate() end)
+            task.wait(0.3)
+        end
+
+        -- Lance la desync
+        pcall(function() raknet.desync(true) end)
+        notif("✓ Desync ON (Carpet mode)")
+    end)
+end
+
+local function deactivate()
+    if not active then return end
+    active=false
+    -- Désactive le carpet
+    local char=player.Character
+    if char then
+        local carpet=char:FindFirstChild("Flying Carpet")
+        if carpet then
+            pcall(function() carpet:Deactivate() end)
+        end
+    end
+    pcall(function() raknet.desync(false) end)
+    notif("Desync OFF")
+end
+
+local sg=Instance.new("ScreenGui",player.PlayerGui)
+sg.Name="EmoryaDesync" sg.ResetOnSpawn=false
+
+local main=Instance.new("Frame",sg)
+main.Size=UDim2.new(0,200,0,180)
+main.Position=UDim2.new(1.5,0,0.5,-90)
+main.BackgroundColor3=BG main.BackgroundTransparency=0.05 main.BorderSizePixel=0
+mkCorner(main,12)
+local ms=mkStroke(main,AC,1.5)
+
+local tb=Instance.new("Frame",main)
+tb.Size=UDim2.new(1,0,0,34) tb.BackgroundColor3=BM tb.BorderSizePixel=0 mkCorner(tb,12)
+local tbf=Instance.new("Frame",tb) tbf.BackgroundColor3=BM tbf.BorderSizePixel=0
+tbf.Position=UDim2.new(0,0,0.5,0) tbf.Size=UDim2.new(1,0,0.5,0)
+
+local dot=Instance.new("Frame",tb) dot.Size=UDim2.new(0,7,0,7)
+dot.Position=UDim2.new(0,10,0.5,-3.5) dot.BackgroundColor3=RD dot.BorderSizePixel=0 mkCorner(dot,10)
+task.spawn(function()
+    while main.Parent do
+        TweenService:Create(dot,TweenInfo.new(0.7,Enum.EasingStyle.Sine,Enum.EasingDirection.InOut),{BackgroundTransparency=0.2}):Play()
+        task.wait(0.7)
+        TweenService:Create(dot,TweenInfo.new(0.7,Enum.EasingStyle.Sine,Enum.EasingDirection.InOut),{BackgroundTransparency=0.8}):Play()
+        task.wait(0.7)
+    end
+end)
+
+local ttl=Instance.new("TextLabel",tb)
+ttl.Size=UDim2.new(1,-40,1,0) ttl.Position=UDim2.new(0,24,0,0)
+ttl.BackgroundTransparency=1 ttl.Text="EMORYA DESYNC"
+ttl.TextColor3=WH ttl.Font=Enum.Font.GothamBold ttl.TextSize=11
+ttl.TextXAlignment=Enum.TextXAlignment.Left
+
+local cls=Instance.new("TextButton",tb)
+cls.Size=UDim2.new(0,11,0,11) cls.Position=UDim2.new(1,-14,0.5,-5.5)
+cls.BackgroundColor3=RD cls.BackgroundTransparency=0.2
+cls.Text="" cls.BorderSizePixel=0 cls.AutoButtonColor=false mkCorner(cls,10)
+cls.MouseButton1Click:Connect(function() deactivate() sg:Destroy() end)
+
+makeDraggable(main,tb)
+
+local statusBar=Instance.new("Frame",main)
+statusBar.Size=UDim2.new(1,-20,0,26) statusBar.Position=UDim2.new(0,10,0,42)
+statusBar.BackgroundColor3=BT statusBar.BackgroundTransparency=0.3 statusBar.BorderSizePixel=0
+mkCorner(statusBar,8)
+
+local statusDot=Instance.new("Frame",statusBar)
+statusDot.Size=UDim2.new(0,7,0,7) statusDot.Position=UDim2.new(0,8,0.5,-3.5)
+statusDot.BackgroundColor3=RD statusDot.BorderSizePixel=0 mkCorner(statusDot,10)
+
+local statusLbl=Instance.new("TextLabel",statusBar)
+statusLbl.Size=UDim2.new(1,-24,1,0) statusLbl.Position=UDim2.new(0,22,0,0)
+statusLbl.BackgroundTransparency=1 statusLbl.Text="● Desync inactive"
+statusLbl.TextColor3=GR statusLbl.Font=Enum.Font.GothamBold statusLbl.TextSize=11
+statusLbl.TextXAlignment=Enum.TextXAlignment.Left
+
+local modeBar=Instance.new("Frame",main)
+modeBar.Size=UDim2.new(1,-20,0,26) modeBar.Position=UDim2.new(0,10,0,76)
+modeBar.BackgroundColor3=BT modeBar.BackgroundTransparency=0.3 modeBar.BorderSizePixel=0
+mkCorner(modeBar,8)
+
+local modeLbl=Instance.new("TextLabel",modeBar)
+modeLbl.Size=UDim2.new(0.5,0,1,0) modeLbl.Position=UDim2.new(0,8,0,0)
+modeLbl.BackgroundTransparency=1 modeLbl.Text="Mode :"
+modeLbl.TextColor3=GR modeLbl.Font=Enum.Font.GothamBold modeLbl.TextSize=11
+modeLbl.TextXAlignment=Enum.TextXAlignment.Left
+
+local modeVal=Instance.new("TextLabel",modeBar)
+modeVal.Size=UDim2.new(0.5,-8,1,0) modeVal.Position=UDim2.new(0.5,0,0,0)
+modeVal.BackgroundTransparency=1 modeVal.Text="Carpet 🛸"
+modeVal.TextColor3=AC2 modeVal.Font=Enum.Font.GothamBold modeVal.TextSize=11
+modeVal.TextXAlignment=Enum.TextXAlignment.Right
+
+local actBtn=Instance.new("TextButton",main)
+actBtn.Size=UDim2.new(1,-20,0,32) actBtn.Position=UDim2.new(0,10,0,110)
+actBtn.BackgroundColor3=AC actBtn.BackgroundTransparency=0.1
+actBtn.Text="ACTIVATE" actBtn.TextColor3=WH
+actBtn.Font=Enum.Font.GothamBlack actBtn.TextSize=13
+actBtn.BorderSizePixel=0 actBtn.AutoButtonColor=false
+mkCorner(actBtn,8) mkStroke(actBtn,AC2,1)
+
+local deactBtn=Instance.new("TextButton",main)
+deactBtn.Size=UDim2.new(1,-20,0,32) deactBtn.Position=UDim2.new(0,10,0,148)
+deactBtn.BackgroundColor3=Color3.fromRGB(30,10,60) deactBtn.BackgroundTransparency=0.1
+deactBtn.Text="DEACTIVATE" deactBtn.TextColor3=AC2
+deactBtn.Font=Enum.Font.GothamBlack deactBtn.TextSize=13
+deactBtn.BorderSizePixel=0 deactBtn.AutoButtonColor=false
+mkCorner(deactBtn,8) mkStroke(deactBtn,AC,1)
+
+local function pulse()
+    task.spawn(function()
+        while active do
+            TweenService:Create(statusDot,TweenInfo.new(0.5,Enum.EasingStyle.Sine,Enum.EasingDirection.InOut),{BackgroundTransparency=0.6}):Play()
+            task.wait(0.5)
+            TweenService:Create(statusDot,TweenInfo.new(0.5,Enum.EasingStyle.Sine,Enum.EasingDirection.InOut),{BackgroundTransparency=0}):Play()
+            task.wait(0.5)
+        end
+    end)
+end
+
+actBtn.MouseButton1Click:Connect(function()
+    if active then return end
+    activate()
+    statusLbl.Text="● Desync active (Carpet)"
+    statusLbl.TextColor3=GN
+    TweenService:Create(statusDot,TweenInfo.new(0.2),{BackgroundColor3=GN}):Play()
+    TweenService:Create(dot,TweenInfo.new(0.2),{BackgroundColor3=GN}):Play()
+    TweenService:Create(ms,TweenInfo.new(0.2),{Color=GN}):Play()
+    pulse()
+end)
+
+deactBtn.MouseButton1Click:Connect(function()
+    if not active then return end
+    deactivate()
+    statusLbl.Text="● Desync inactive"
+    statusLbl.TextColor3=GR
+    TweenService:Create(statusDot,TweenInfo.new(0.2),{BackgroundColor3=RD}):Play()
+    TweenService:Create(dot,TweenInfo.new(0.2),{BackgroundColor3=RD}):Play()
+    TweenService:Create(ms,TweenInfo.new(0.2),{Color=AC}):Play()
+end)
+
+actBtn.MouseEnter:Connect(function() TweenService:Create(actBtn,TweenInfo.new(0.1),{BackgroundTransparency=0}):Play() end)
+actBtn.MouseLeave:Connect(function() TweenService:Create(actBtn,TweenInfo.new(0.1),{BackgroundTransparency=0.1}):Play() end)
+deactBtn.MouseEnter:Connect(function() TweenService:Create(deactBtn,TweenInfo.new(0.1),{BackgroundTransparency=0}):Play() end)
+deactBtn.MouseLeave:Connect(function() TweenService:Create(deactBtn,TweenInfo.new(0.1),{BackgroundTransparency=0.1}):Play() end)
+
+TweenService:Create(main,TweenInfo.new(0.4,Enum.EasingStyle.Back,Enum.EasingDirection.Out),{
+    Position=UDim2.new(0.5,-100,0.5,-90)
+}):Play()
