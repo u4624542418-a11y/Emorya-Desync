@@ -1,11 +1,17 @@
 local Players=game:GetService("Players")
 local TweenService=game:GetService("TweenService")
 local UserInputService=game:GetService("UserInputService")
+local RunService=game:GetService("RunService")
 local player=Players.LocalPlayer
 
+local desyncOn=false
 local AC=Color3.fromRGB(120,80,255)
 local WH=Color3.fromRGB(255,255,255)
+local RD=Color3.fromRGB(220,60,60)
 local GN=Color3.fromRGB(80,220,80)
+
+local function mkCorner(p,r) local c=Instance.new("UICorner",p) c.CornerRadius=UDim.new(0,r or 8) end
+local function mkStroke(p,col,th) local s=Instance.new("UIStroke",p) s.Color=col or AC s.Thickness=th or 1.5 return s end
 
 local function makeDraggable(frame)
     local drag,ds,dp=false,nil,nil
@@ -25,6 +31,47 @@ local function makeDraggable(frame)
     end)
 end
 
+local function activateCloneDesync()
+    if desyncOn then
+        desyncOn=false
+        pcall(function() raknet.desync(false) end)
+        return false
+    end
+    desyncOn=true
+    task.spawn(function()
+        local char=player.Character if not char then return end
+        local hum=char:FindFirstChildOfClass("Humanoid") if not hum then return end
+        local cloner=player.Backpack:FindFirstChild("Quantum Cloner") or char:FindFirstChild("Quantum Cloner")
+        if cloner then
+            pcall(function() hum:EquipTool(cloner) end)
+            RunService.Heartbeat:Wait()
+            pcall(function() cloner:Activate() end)
+            RunService.Heartbeat:Wait()
+        end
+        -- Cherche clone dans workspace
+        local cloneName=tostring(player.UserId).."_Clone"
+        local clone=nil
+        local conn
+        conn=RunService.Heartbeat:Connect(function()
+            clone=workspace:FindFirstChild(cloneName)
+            if clone then
+                conn:Disconnect()
+                local cloneHRP=clone:FindFirstChild("HumanoidRootPart")
+                if cloneHRP then
+                    local hrp=char:FindFirstChild("HumanoidRootPart")
+                    if hrp then
+                        pcall(function() hrp.CFrame=cloneHRP.CFrame end)
+                    end
+                end
+                pcall(function() raknet.desync(true) end)
+                RunService.Heartbeat:Wait()
+                pcall(function() hum:UnequipTools() end)
+            end
+        end)
+    end)
+    return true
+end
+
 -- GUI
 local sg=Instance.new("ScreenGui",player.PlayerGui)
 sg.Name="UchiwaDesync" sg.ResetOnSpawn=false
@@ -35,74 +82,33 @@ main.Position=UDim2.new(0.5,-35,0.5,-12)
 main.BackgroundColor3=Color3.fromRGB(10,10,18)
 main.BackgroundTransparency=0.1
 main.BorderSizePixel=0
-local co=Instance.new("UICorner",main) co.CornerRadius=UDim.new(0,8)
-local ms=Instance.new("UIStroke",main) ms.Color=AC ms.Thickness=1.5
+mkCorner(main,8)
+local ms=mkStroke(main,AC,1.5)
 makeDraggable(main)
 
-local lbl=Instance.new("TextLabel",main)
-lbl.Size=UDim2.new(1,0,1,0)
-lbl.BackgroundTransparency=1
-lbl.Text="DESYNC"
-lbl.TextColor3=Color3.fromRGB(160,160,170)
-lbl.Font=Enum.Font.GothamBlack
-lbl.TextSize=11
-lbl.BorderSizePixel=0
+local btn=Instance.new("TextButton",main)
+btn.Size=UDim2.new(1,0,1,0)
+btn.BackgroundColor3=RD
+btn.BackgroundTransparency=0.1
+btn.Text="DESYNC"
+btn.TextColor3=WH
+btn.Font=Enum.Font.GothamBlack
+btn.TextSize=11
+btn.BorderSizePixel=0
+btn.AutoButtonColor=false
+mkCorner(btn,8)
 
--- Cherche le bouton Change With Clone dans le GUI
-local function findChangeBtn()
-    for _,gui in pairs(player.PlayerGui:GetDescendants()) do
-        if gui:IsA("TextButton") and gui.Text:lower():find("change") then
-            return gui
-        end
-        if gui:IsA("ImageButton") then
-            local lbl=gui:FindFirstChildWhichIsA("TextLabel",true)
-            if lbl and lbl.Text:lower():find("change") then
-                return gui
-            end
-        end
-    end
-    return nil
-end
-
-task.spawn(function()
-    task.wait(0.5)
-    local char=player.Character if not char then return end
-    local hum=char:FindFirstChildOfClass("Humanoid") if not hum then return end
-
-    -- Equipe + active le cloner
-    local cloner=player.Backpack:FindFirstChild("Quantum Cloner")
-        or char:FindFirstChild("Quantum Cloner")
-
-    if cloner then
-        pcall(function() hum:EquipTool(cloner) end)
-        task.wait(0.3)
-        pcall(function() cloner:Activate() end)
-        task.wait(0.8) -- Attend que le bouton "Change With Clone" apparaisse
-    end
-
-    -- Cherche et clique sur "Change With Clone"
-    local changeBtn=findChangeBtn()
-    if changeBtn then
-        pcall(function() firesignal(changeBtn.MouseButton1Click) end)
-        pcall(function() firesignal(changeBtn.Activated) end)
-        task.wait(0.3)
+btn.MouseButton1Click:Connect(function()
+    local on=activateCloneDesync()
+    if on then
+        btn.Text="DESYNC"
+        TweenService:Create(btn,TweenInfo.new(0.2),{BackgroundColor3=GN}):Play()
+        TweenService:Create(ms,TweenInfo.new(0.2),{Color=GN}):Play()
+        TweenService:Create(main,TweenInfo.new(0.2),{BackgroundColor3=Color3.fromRGB(10,30,10)}):Play()
     else
-        -- Fallback: cherche ProximityPrompt "Change"
-        for _,v in pairs(workspace:GetDescendants()) do
-            if v:IsA("ProximityPrompt") and v.ActionText:lower():find("change") then
-                pcall(function() fireproximityprompt(v) end)
-                break
-            end
-        end
-        task.wait(0.3)
+        btn.Text="DESYNC"
+        TweenService:Create(btn,TweenInfo.new(0.2),{BackgroundColor3=RD}):Play()
+        TweenService:Create(ms,TweenInfo.new(0.2),{Color=AC}):Play()
+        TweenService:Create(main,TweenInfo.new(0.2),{BackgroundColor3=Color3.fromRGB(10,10,18)}):Play()
     end
-
-    -- Desync
-    pcall(function() raknet.desync(true) end)
-    pcall(function() hum:UnequipTools() end)
-
-    -- Vert
-    lbl.TextColor3=GN
-    TweenService:Create(ms,TweenInfo.new(0.3),{Color=GN}):Play()
-    TweenService:Create(main,TweenInfo.new(0.3),{BackgroundColor3=Color3.fromRGB(10,30,10)}):Play()
 end)
